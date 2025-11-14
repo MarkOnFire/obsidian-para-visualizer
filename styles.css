@@ -1,0 +1,404 @@
+/* PARA Visualizer Plugin Styles */
+
+.para-visualizer-view {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.para-visualizer-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background-color: var(--background-secondary);
+}
+
+.para-visualizer-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.para-visualizer-tab {
+  padding: 6px 12px;
+  border-radius: 4px;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.para-visualizer-tab:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.para-visualizer-tab.active {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
+.para-visualizer-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.para-visualizer-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.para-visualizer-control label {
+  color: var(--text-muted);
+}
+
+.para-visualizer-control input,
+.para-visualizer-control select {
+  padding: 4px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 12px;
+}
+
+.para-visualizer-content {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  background-color: var(--background-primary);
+}
+
+/* Heatmap Styles */
+.para-heatmap {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.para-heatmap-section {
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.para-heatmap-section h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.para-location-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.para-location-badge.inbox { background-color: #8b5cf6; color: white; }
+.para-location-badge.projects { background-color: #3b82f6; color: white; }
+.para-location-badge.areas { background-color: #10b981; color: white; }
+.para-location-badge.resources { background-color: #f59e0b; color: white; }
+.para-location-badge.archive { background-color: #6b7280; color: white; }
+
+.para-heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12px, 1fr));
+  gap: 3px;
+  max-width: 100%;
+}
+
+.para-heatmap-cell {
+  aspect-ratio: 1;
+  background-color: var(--background-modifier-border);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.para-heatmap-cell:hover {
+  transform: scale(1.2);
+  z-index: 10;
+}
+
+.para-heatmap-cell.level-0 { opacity: 0.2; }
+.para-heatmap-cell.level-1 { opacity: 0.4; }
+.para-heatmap-cell.level-2 { opacity: 0.6; }
+.para-heatmap-cell.level-3 { opacity: 0.8; }
+.para-heatmap-cell.level-4 { opacity: 1.0; }
+
+/* Graph Styles */
+.para-graph-container {
+  width: 100%;
+  height: 600px;
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.para-graph-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.para-graph-legend {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 11px;
+}
+
+.para-graph-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.para-graph-legend-item:last-child {
+  margin-bottom: 0;
+}
+
+.para-graph-legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+/* Tag Cloud Styles */
+.para-tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  min-height: 400px;
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+}
+
+.para-tag-cloud-item {
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.para-tag-cloud-item:hover {
+  transform: scale(1.1);
+  background-color: var(--background-modifier-hover);
+}
+
+/* Stats Panel */
+.para-stats-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.para-stat-card {
+  background-color: var(--background-secondary);
+  border-radius: 6px;
+  padding: 12px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.para-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.para-stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Tooltip */
+.para-tooltip {
+  position: absolute;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  max-width: 300px;
+}
+
+.para-tooltip-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.para-tooltip-detail {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+/* Loading State */
+.para-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.para-loading::before {
+  content: "⏳ ";
+  margin-right: 8px;
+}
+
+/* Empty State */
+.para-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 40px;
+}
+
+.para-empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.3;
+}
+
+.para-empty-message {
+  font-size: 14px;
+  max-width: 400px;
+}
+
+/* Sankey Diagram Styles */
+.para-sankey-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.para-sankey-stats {
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.para-sankey-stats h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.para-sankey-canvas {
+  width: 100%;
+  height: 600px;
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+  display: block;
+}
+
+.para-sankey-insights {
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.para-sankey-insights h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.para-sankey-insights ul {
+  margin: 0;
+  color: var(--text-normal);
+  font-size: 13px;
+}
+
+.para-sankey-insights li {
+  margin-bottom: 8px;
+}
+
+/* Task Analytics Styles */
+.para-task-analytics {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.para-task-para-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.para-task-para-card {
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.para-task-para-header {
+  margin-bottom: 12px;
+}
+
+.para-task-para-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.para-task-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.para-task-bar-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.para-task-bar-progress {
+  height: 8px;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  min-width: 2px;
+}
+
+.para-velocity-canvas {
+  width: 100%;
+  height: 300px;
+  background-color: var(--background-primary);
+  border-radius: 6px;
+  display: block;
+}

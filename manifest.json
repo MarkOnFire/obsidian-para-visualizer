@@ -1,0 +1,10 @@
+{
+  "id": "para-visualizer",
+  "name": "PARA Visualizer",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "Visualize your PARA vault with interactive graphs, heatmaps, and tag clouds",
+  "author": "Mark Riechers",
+  "authorUrl": "https://github.com/mriechers",
+  "isDesktopOnly": false
+}
