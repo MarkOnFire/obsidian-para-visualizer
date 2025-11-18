@@ -89,6 +89,26 @@ The note view automatically updates when you switch to a different note or modif
 - **Fast Performance**: Efficient data processing even for large vaults
 - **Click-to-Open**: Click elements in visualizations to open related notes or trigger searches
 
+## Dependencies
+
+### Required for Full Functionality
+
+**Quick PARA Plugin** (recommended)
+- Provides automatic PARA location tracking (`para` property)
+- Records movement history (`para_history` property)
+- Required for PARA History visualization
+- Vault-level visualizations work without it, but won't show PARA-specific insights
+
+**Without Quick PARA:**
+- ✅ Vault visualizations still work (heatmap, graph, tag cloud, stats)
+- ✅ Note context view works (links, siblings, related notes)
+- ⚠️ PARA History view will show a dependency warning
+- ⚠️ PARA-based filtering/coloring won't work without `para` property
+
+### Checking Dependencies
+
+Run the command **"PARA Visualizer: Check Dependencies"** from the command palette to verify Quick PARA is installed and enabled.
+
 ## Installation
 
 ### Manual Installation
@@ -101,6 +121,8 @@ The note view automatically updates when you switch to a different note or modif
 2. Restart Obsidian or reload the app
 
 3. Go to Settings → Community plugins → Enable "PARA Visualizer"
+
+4. **(Recommended)** Install and enable the **Quick PARA** plugin for full functionality
 
 ## Usage
 

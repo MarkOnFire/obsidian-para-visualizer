@@ -1679,6 +1679,27 @@ class PARAVisualizerView extends ItemView {
   }
 
   renderNoteHistory(container) {
+    // Check for Quick PARA dependency
+    if (!this.plugin.hasQuickPARA()) {
+      container.createDiv('para-dependency-warning').innerHTML = `
+        <div style="background: var(--background-modifier-error); padding: 24px; border-radius: 8px; margin: 20px;">
+          <h3 style="margin: 0 0 12px 0; color: var(--text-error);">⚠️ Quick PARA Plugin Required</h3>
+          <p style="margin: 0 0 12px 0;">The PARA History feature requires the <strong>Quick PARA</strong> plugin to track note movements.</p>
+          <p style="margin: 0 0 12px 0; font-size: 0.9em;">Quick PARA automatically records when you move notes between PARA folders (Inbox → Projects → Archive, etc.).</p>
+          <p style="margin: 0; font-size: 0.9em;"><strong>To use this feature:</strong></p>
+          <ol style="margin: 8px 0 0 20px; font-size: 0.9em;">
+            <li>Install the Quick PARA plugin</li>
+            <li>Enable it in Settings → Community Plugins</li>
+            <li>Move notes between PARA folders to build history</li>
+          </ol>
+          <p style="margin: 12px 0 0 0; font-size: 0.85em; color: var(--text-muted);">
+            Run "PARA Visualizer: Check Dependencies" command to verify installation.
+          </p>
+        </div>
+      `;
+      return;
+    }
+
     if (!this.currentNoteData) {
       container.createDiv('para-empty-state').innerHTML = `
         <div style="text-align: center; padding: 40px; color: var(--text-muted);">
@@ -1992,6 +2013,9 @@ class PARAVisualizerPlugin extends Plugin {
   async onload() {
     console.log('Loading PARA Visualizer plugin');
 
+    // Check for Quick PARA plugin
+    this.checkDependencies();
+
     // Register view
     this.registerView(
       VIEW_TYPE_PARA_VISUALIZER,
@@ -2011,6 +2035,43 @@ class PARAVisualizerPlugin extends Plugin {
         this.activateView();
       }
     });
+
+    // Add dependency check command
+    this.addCommand({
+      id: 'check-para-dependencies',
+      name: 'Check Dependencies',
+      callback: () => {
+        this.checkDependencies(true);
+      }
+    });
+  }
+
+  checkDependencies(showSuccess = false) {
+    const quickParaPlugin = this.app.plugins.plugins['quick-para'];
+
+    if (!quickParaPlugin) {
+      new Notice('⚠️ PARA Visualizer: Quick PARA plugin not found', 8000);
+      new Notice('Some features require Quick PARA plugin. Install it from Community Plugins.', 10000);
+      console.warn('PARA Visualizer: Quick PARA plugin is not installed. Some features may not work correctly.');
+      return false;
+    }
+
+    if (!this.app.plugins.enabledPlugins.has('quick-para')) {
+      new Notice('⚠️ PARA Visualizer: Quick PARA plugin is disabled', 8000);
+      new Notice('Enable Quick PARA plugin in Settings → Community Plugins for full functionality.', 10000);
+      console.warn('PARA Visualizer: Quick PARA plugin is installed but disabled.');
+      return false;
+    }
+
+    if (showSuccess) {
+      new Notice('✅ All dependencies are installed and enabled!', 5000);
+    }
+
+    return true;
+  }
+
+  hasQuickPARA() {
+    return this.app.plugins.enabledPlugins.has('quick-para');
   }
 
   async activateView() {
