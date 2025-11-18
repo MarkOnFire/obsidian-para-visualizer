@@ -402,3 +402,87 @@
   border-radius: 6px;
   display: block;
 }
+
+/* Note-Specific View Styles */
+.para-note-header {
+  margin-bottom: 16px;
+}
+
+.para-note-header h2 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.para-note-metadata {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.para-note-stats {
+  margin-bottom: 20px;
+}
+
+.para-note-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.para-note-section {
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.para-note-section h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.para-note-section ul {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.para-note-section li {
+  padding: 6px 0;
+  transition: background 0.2s;
+}
+
+.para-note-section li:hover {
+  background-color: var(--background-modifier-hover);
+  padding-left: 8px;
+  margin-left: -8px;
+  border-radius: 4px;
+}
+
+.para-note-warning {
+  border-left: 3px solid var(--text-error);
+}
+
+.para-empty-state {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+}
+
+.para-stat-box {
+  transition: transform 0.2s;
+}
+
+.para-stat-box:hover {
+  transform: translateY(-2px);
+}
+
+.para-scope-toggle button {
+  transition: all 0.2s;
+}
+
+.para-scope-toggle button:hover {
+  opacity: 0.8;
+}

@@ -1,10 +1,17 @@
 # PARA Visualizer Plugin
 
-An interactive visualization plugin for Obsidian that brings your PARA-organized vault to life with beautiful charts, graphs, and insights.
+An interactive visualization plugin for Obsidian that brings your PARA-organized vault to life with beautiful charts, graphs, and insights. Includes both **vault-level** and **note-specific** visualizations.
 
 ## Features
 
-### 🎨 Four Visualization Modes
+### 🔀 Two Viewing Modes
+
+**🗂️ Vault View** - Analyze patterns and trends across your entire vault
+**📝 Current Note View** - Deep dive into a specific note's context and connections
+
+Toggle between modes using the buttons at the top of the visualizer panel.
+
+### 🎨 Vault-Level Visualizations
 
 1. **Activity Heatmap** 📅
    - GitHub-style calendar heatmap showing note creation and modification activity
@@ -19,21 +26,54 @@ An interactive visualization plugin for Obsidian that brings your PARA-organized
    - Click nodes to open notes
    - Smooth physics-based animation
 
-3. **Tag Cloud** 🏷️
+3. **PARA Flow** 🌊
+   - Sankey diagram showing note movement between PARA locations
+   - Visual representation of your knowledge management workflow
+   - Track how notes transition from inbox to projects to archive
+
+4. **Task Analytics** ✅
+   - Task completion metrics by PARA location
+   - Task velocity trends over time
+   - Open vs. completed task breakdown
+   - Identify bottlenecks in your workflow
+
+5. **Tag Cloud** 🏷️
    - Dynamic word cloud of your most-used tags
    - Font size reflects tag frequency
    - Opacity shows recent activity vs. historical usage
    - Click tags to search vault
    - Excludes system tags (all, inbox, projects, etc.)
 
-4. **Statistics Dashboard** 📊
+6. **Statistics Dashboard** 📊
    - Vault overview metrics (total notes, tags, links)
    - PARA distribution with percentages
    - Recent activity tracking (24h, 7d, 30d, 90d)
    - Top 10 most-used tags
    - Average links per note
 
-### ⚙️ Features
+### 📝 Note-Specific Visualizations
+
+Switch to **Current Note View** to see:
+
+1. **Note Context** 🔍
+   - **Incoming Links** (⬅️): Notes that link TO this note (what references this?)
+   - **Outgoing Links** (➡️): Notes that this note links TO (what does this reference?)
+   - **Sibling Notes** (👥): Other notes in the same folder
+   - **Related by Tags** (🔗): Notes sharing tags with this note
+   - **Orphan Detection** (⚠️): Warning if note has no connections
+   - **Quick Stats**: Visual metrics for link counts and relationships
+   - **Click to Navigate**: Click any linked note to open it
+
+2. **Note Tasks** ✅
+   - Task completion progress bar
+   - Open vs. completed task breakdown
+   - Due date highlighting (overdue tasks in red)
+   - Completion date tracking
+   - Task counts and percentages
+
+The note view automatically updates when you switch to a different note or modify the current note.
+
+### ⚙️ Additional Features
 
 - **Time Range Filtering**: View data for last 30 days, 90 days, 6 months, 1 year, or all time
 - **Real-time Refresh**: Update visualizations on-demand to reflect latest vault changes

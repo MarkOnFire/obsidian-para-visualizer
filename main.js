@@ -18,6 +18,8 @@ class PARAVisualizerView extends ItemView {
     this.currentView = 'heatmap'; // Default view
     this.dateRange = 90; // days
     this.vaultData = null;
+    this.scope = 'vault'; // 'vault' or 'note'
+    this.currentNoteData = null;
   }
 
   getViewType() {
@@ -38,6 +40,28 @@ class PARAVisualizerView extends ItemView {
     container.addClass('para-visualizer-view');
 
     await this.collectVaultData();
+
+    // Listen for active file changes
+    this.registerEvent(
+      this.app.workspace.on('active-leaf-change', async () => {
+        if (this.scope === 'note') {
+          await this.updateCurrentNoteData();
+          this.render();
+        }
+      })
+    );
+
+    // Listen for file modifications
+    this.registerEvent(
+      this.app.vault.on('modify', async (file) => {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (this.scope === 'note' && activeFile && file.path === activeFile.path) {
+          await this.updateCurrentNoteData();
+          this.render();
+        }
+      })
+    );
+
     this.render();
   }
 
@@ -260,20 +284,58 @@ class PARAVisualizerView extends ItemView {
       case 'stats':
         this.renderStats(content);
         break;
+      case 'note-context':
+        this.renderNoteContext(content);
+        break;
+      case 'note-tasks':
+        this.renderNoteTasks(content);
+        break;
     }
   }
 
   renderTabs(container) {
+    // Scope toggle
+    const scopeToggle = container.createDiv('para-scope-toggle');
+    scopeToggle.style.cssText = 'display: flex; gap: 8px; margin-bottom: 12px; background: var(--background-secondary); padding: 4px; border-radius: 8px; width: fit-content;';
+
+    const vaultBtn = scopeToggle.createEl('button');
+    vaultBtn.textContent = '🗂️ Vault';
+    vaultBtn.style.cssText = `padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; background: ${this.scope === 'vault' ? 'var(--interactive-accent)' : 'transparent'}; color: ${this.scope === 'vault' ? 'var(--text-on-accent)' : 'var(--text-normal)'}`;
+    vaultBtn.addEventListener('click', () => {
+      this.scope = 'vault';
+      this.currentView = 'heatmap'; // Default vault view
+      this.render();
+    });
+
+    const noteBtn = scopeToggle.createEl('button');
+    noteBtn.textContent = '📝 Current Note';
+    noteBtn.style.cssText = `padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; background: ${this.scope === 'note' ? 'var(--interactive-accent)' : 'transparent'}; color: ${this.scope === 'note' ? 'var(--text-on-accent)' : 'var(--text-normal)'}`;
+    noteBtn.addEventListener('click', async () => {
+      this.scope = 'note';
+      this.currentView = 'note-context'; // Default note view
+      await this.updateCurrentNoteData();
+      this.render();
+    });
+
+    // Tabs based on scope
     const tabsContainer = container.createDiv('para-visualizer-tabs');
 
-    const tabs = [
-      { id: 'heatmap', label: 'Activity Heatmap', icon: '📅' },
-      { id: 'graph', label: 'Knowledge Graph', icon: '🕸️' },
-      { id: 'sankey', label: 'PARA Flow', icon: '🌊' },
-      { id: 'tasks', label: 'Task Analytics', icon: '✅' },
-      { id: 'tags', label: 'Tag Cloud', icon: '🏷️' },
-      { id: 'stats', label: 'Statistics', icon: '📊' }
-    ];
+    let tabs = [];
+    if (this.scope === 'vault') {
+      tabs = [
+        { id: 'heatmap', label: 'Activity Heatmap', icon: '📅' },
+        { id: 'graph', label: 'Knowledge Graph', icon: '🕸️' },
+        { id: 'sankey', label: 'PARA Flow', icon: '🌊' },
+        { id: 'tasks', label: 'Task Analytics', icon: '✅' },
+        { id: 'tags', label: 'Tag Cloud', icon: '🏷️' },
+        { id: 'stats', label: 'Statistics', icon: '📊' }
+      ];
+    } else {
+      tabs = [
+        { id: 'note-context', label: 'Note Context', icon: '🔍' },
+        { id: 'note-tasks', label: 'Tasks', icon: '✅' }
+      ];
+    }
 
     tabs.forEach(tab => {
       const tabEl = tabsContainer.createDiv('para-visualizer-tab');
@@ -1337,6 +1399,397 @@ class PARAVisualizerView extends ItemView {
     topTags.forEach(item => {
       tagsList.createEl('li', { text: `#${item.tag} (${item.count})` });
     });
+  }
+
+  async updateCurrentNoteData() {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile) {
+      this.currentNoteData = null;
+      return;
+    }
+
+    const cache = this.app.metadataCache.getFileCache(activeFile);
+    if (!cache) {
+      this.currentNoteData = null;
+      return;
+    }
+
+    // Get note data from vault data
+    const noteData = this.vaultData?.notes.find(n => n.path === activeFile.path);
+    if (!noteData) {
+      this.currentNoteData = null;
+      return;
+    }
+
+    // Find incoming links (what notes link TO this one)
+    const incomingLinks = this.vaultData.notes.filter(n =>
+      n.links.some(link => {
+        // Handle both full paths and basenames
+        return link === activeFile.basename || link === activeFile.path;
+      })
+    );
+
+    // Find outgoing links (what notes this one links TO)
+    const outgoingLinks = noteData.links.map(link => {
+      return this.vaultData.notes.find(n =>
+        n.basename === link || n.path === link
+      );
+    }).filter(n => n); // Remove null entries
+
+    // Find sibling notes (same PARA location + same subfolder)
+    const siblings = this.vaultData.notes.filter(n => {
+      if (n.path === activeFile.path) return false;
+      if (n.paraLocation !== noteData.paraLocation) return false;
+
+      // Check if in same subfolder
+      const activeFolder = activeFile.parent?.path || '';
+      const noteFolder = n.path.split('/').slice(0, -1).join('/');
+      return activeFolder === noteFolder;
+    });
+
+    // Find notes with shared tags
+    const relatedByTag = [];
+    if (noteData.tags.length > 0) {
+      this.vaultData.notes.forEach(n => {
+        if (n.path === activeFile.path) return;
+        const sharedTags = n.tags.filter(tag => noteData.tags.includes(tag));
+        if (sharedTags.length > 0) {
+          relatedByTag.push({
+            note: n,
+            sharedTags: sharedTags,
+            tagScore: sharedTags.length
+          });
+        }
+      });
+      relatedByTag.sort((a, b) => b.tagScore - a.tagScore);
+    }
+
+    // Parse tasks from current file
+    const tasks = await this.parseTasksFromFile(activeFile, noteData.paraLocation);
+
+    this.currentNoteData = {
+      file: activeFile,
+      note: noteData,
+      incomingLinks: incomingLinks,
+      outgoingLinks: outgoingLinks,
+      siblings: siblings,
+      relatedByTag: relatedByTag.slice(0, 10), // Top 10
+      tasks: tasks
+    };
+  }
+
+  renderNoteContext(container) {
+    if (!this.currentNoteData) {
+      const activeFile = this.app.workspace.getActiveFile();
+      if (!activeFile) {
+        container.createDiv('para-empty-state').innerHTML = `
+          <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+            <p>📝 No note selected</p>
+            <p style="font-size: 0.9em;">Open a note to see its context and connections</p>
+          </div>
+        `;
+      } else {
+        container.createDiv('para-empty-state').innerHTML = `
+          <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+            <p>⏳ Loading note data...</p>
+          </div>
+        `;
+        // Trigger update
+        this.updateCurrentNoteData().then(() => this.render());
+      }
+      return;
+    }
+
+    const { note, incomingLinks, outgoingLinks, siblings, relatedByTag } = this.currentNoteData;
+
+    // Header with note info
+    const header = container.createDiv('para-note-header');
+    header.createEl('h2', { text: note.basename });
+
+    const metadata = header.createDiv('para-note-metadata');
+    const paraColor = PARA_COLORS[note.paraLocation] || '#6b7280';
+    metadata.innerHTML = `
+      <span style="background: ${paraColor}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">
+        ${note.paraLocation.toUpperCase()}
+      </span>
+      <span style="margin-left: 8px; color: var(--text-muted); font-size: 0.9em;">
+        ${note.tags.map(t => '#' + t).join(' ')}
+      </span>
+    `;
+
+    // Stats row
+    const stats = container.createDiv('para-note-stats');
+    stats.style.cssText = 'display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0;';
+
+    const statBoxes = [
+      { label: 'Incoming Links', value: incomingLinks.length, icon: '⬅️' },
+      { label: 'Outgoing Links', value: outgoingLinks.length, icon: '➡️' },
+      { label: 'Siblings', value: siblings.length, icon: '👥' },
+      { label: 'Related Notes', value: relatedByTag.length, icon: '🔗' }
+    ];
+
+    statBoxes.forEach(stat => {
+      const box = stats.createDiv('para-stat-box');
+      box.style.cssText = 'background: var(--background-secondary); padding: 12px; border-radius: 8px; text-align: center;';
+      box.innerHTML = `
+        <div style="font-size: 1.5em; margin-bottom: 4px;">${stat.icon} ${stat.value}</div>
+        <div style="font-size: 0.85em; color: var(--text-muted);">${stat.label}</div>
+      `;
+    });
+
+    // Sections
+    const sections = container.createDiv('para-note-sections');
+
+    // Incoming links
+    if (incomingLinks.length > 0) {
+      const section = sections.createDiv('para-note-section');
+      section.createEl('h3', { text: '⬅️ Incoming Links' });
+      section.createEl('p', {
+        text: `${incomingLinks.length} note${incomingLinks.length > 1 ? 's' : ''} link to this note`,
+        attr: { style: 'color: var(--text-muted); font-size: 0.9em; margin-bottom: 8px;' }
+      });
+
+      const list = section.createEl('ul');
+      incomingLinks.slice(0, 10).forEach(n => {
+        const item = list.createEl('li');
+        item.style.cssText = 'cursor: pointer; padding: 4px 0;';
+        item.innerHTML = `
+          <span style="background: ${PARA_COLORS[n.paraLocation]}; color: white; padding: 1px 6px; border-radius: 3px; font-size: 0.75em; margin-right: 6px;">
+            ${n.paraLocation.substring(0, 3).toUpperCase()}
+          </span>
+          ${n.basename}
+        `;
+        item.addEventListener('click', () => {
+          this.app.workspace.openLinkText(n.path, '', false);
+        });
+      });
+
+      if (incomingLinks.length > 10) {
+        section.createEl('p', {
+          text: `...and ${incomingLinks.length - 10} more`,
+          attr: { style: 'color: var(--text-muted); font-size: 0.85em; font-style: italic;' }
+        });
+      }
+    }
+
+    // Outgoing links
+    if (outgoingLinks.length > 0) {
+      const section = sections.createDiv('para-note-section');
+      section.createEl('h3', { text: '➡️ Outgoing Links' });
+      section.createEl('p', {
+        text: `This note links to ${outgoingLinks.length} other note${outgoingLinks.length > 1 ? 's' : ''}`,
+        attr: { style: 'color: var(--text-muted); font-size: 0.9em; margin-bottom: 8px;' }
+      });
+
+      const list = section.createEl('ul');
+      outgoingLinks.slice(0, 10).forEach(n => {
+        const item = list.createEl('li');
+        item.style.cssText = 'cursor: pointer; padding: 4px 0;';
+        item.innerHTML = `
+          <span style="background: ${PARA_COLORS[n.paraLocation]}; color: white; padding: 1px 6px; border-radius: 3px; font-size: 0.75em; margin-right: 6px;">
+            ${n.paraLocation.substring(0, 3).toUpperCase()}
+          </span>
+          ${n.basename}
+        `;
+        item.addEventListener('click', () => {
+          this.app.workspace.openLinkText(n.path, '', false);
+        });
+      });
+
+      if (outgoingLinks.length > 10) {
+        section.createEl('p', {
+          text: `...and ${outgoingLinks.length - 10} more`,
+          attr: { style: 'color: var(--text-muted); font-size: 0.85em; font-style: italic;' }
+        });
+      }
+    }
+
+    // Siblings
+    if (siblings.length > 0) {
+      const section = sections.createDiv('para-note-section');
+      section.createEl('h3', { text: '👥 Sibling Notes' });
+      section.createEl('p', {
+        text: `${siblings.length} other note${siblings.length > 1 ? 's' : ''} in the same folder`,
+        attr: { style: 'color: var(--text-muted); font-size: 0.9em; margin-bottom: 8px;' }
+      });
+
+      const list = section.createEl('ul');
+      siblings.slice(0, 10).forEach(n => {
+        const item = list.createEl('li');
+        item.style.cssText = 'cursor: pointer; padding: 4px 0;';
+        item.textContent = n.basename;
+        item.addEventListener('click', () => {
+          this.app.workspace.openLinkText(n.path, '', false);
+        });
+      });
+
+      if (siblings.length > 10) {
+        section.createEl('p', {
+          text: `...and ${siblings.length - 10} more`,
+          attr: { style: 'color: var(--text-muted); font-size: 0.85em; font-style: italic;' }
+        });
+      }
+    }
+
+    // Related by tags
+    if (relatedByTag.length > 0) {
+      const section = sections.createDiv('para-note-section');
+      section.createEl('h3', { text: '🔗 Related by Tags' });
+      section.createEl('p', {
+        text: `Notes sharing tags with this note`,
+        attr: { style: 'color: var(--text-muted); font-size: 0.9em; margin-bottom: 8px;' }
+      });
+
+      const list = section.createEl('ul');
+      relatedByTag.forEach(rel => {
+        const item = list.createEl('li');
+        item.style.cssText = 'cursor: pointer; padding: 4px 0;';
+        item.innerHTML = `
+          <span style="background: ${PARA_COLORS[rel.note.paraLocation]}; color: white; padding: 1px 6px; border-radius: 3px; font-size: 0.75em; margin-right: 6px;">
+            ${rel.note.paraLocation.substring(0, 3).toUpperCase()}
+          </span>
+          ${rel.note.basename}
+          <span style="color: var(--text-muted); font-size: 0.85em; margin-left: 6px;">
+            (${rel.sharedTags.map(t => '#' + t).join(', ')})
+          </span>
+        `;
+        item.addEventListener('click', () => {
+          this.app.workspace.openLinkText(rel.note.path, '', false);
+        });
+      });
+    }
+
+    // Orphan status
+    if (incomingLinks.length === 0 && outgoingLinks.length === 0) {
+      const warning = container.createDiv('para-note-warning');
+      warning.style.cssText = 'background: var(--background-modifier-error); padding: 12px; border-radius: 8px; margin-top: 16px;';
+      warning.innerHTML = `
+        <div style="font-weight: 600; margin-bottom: 4px;">⚠️ Orphan Note</div>
+        <div style="font-size: 0.9em;">This note has no connections to other notes. Consider linking it to related content.</div>
+      `;
+    }
+  }
+
+  renderNoteTasks(container) {
+    if (!this.currentNoteData) {
+      container.createDiv('para-empty-state').innerHTML = `
+        <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+          <p>📝 No note selected</p>
+          <p style="font-size: 0.9em;">Open a note to see its tasks</p>
+        </div>
+      `;
+      return;
+    }
+
+    const { note, tasks } = this.currentNoteData;
+
+    // Header
+    const header = container.createDiv('para-note-header');
+    header.createEl('h2', { text: `Tasks in ${note.basename}` });
+
+    if (tasks.length === 0) {
+      container.createDiv('para-empty-state').innerHTML = `
+        <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+          <p>✅ No tasks found</p>
+          <p style="font-size: 0.9em;">This note doesn't contain any tasks</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Task stats
+    const completed = tasks.filter(t => t.completed).length;
+    const open = tasks.length - completed;
+    const completionRate = tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
+
+    const stats = container.createDiv('para-note-stats');
+    stats.style.cssText = 'display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0;';
+
+    const statBoxes = [
+      { label: 'Total Tasks', value: tasks.length, icon: '📋' },
+      { label: 'Completed', value: completed, icon: '✅' },
+      { label: 'Open', value: open, icon: '⬜' }
+    ];
+
+    statBoxes.forEach(stat => {
+      const box = stats.createDiv('para-stat-box');
+      box.style.cssText = 'background: var(--background-secondary); padding: 12px; border-radius: 8px; text-align: center;';
+      box.innerHTML = `
+        <div style="font-size: 1.5em; margin-bottom: 4px;">${stat.icon} ${stat.value}</div>
+        <div style="font-size: 0.85em; color: var(--text-muted);">${stat.label}</div>
+      `;
+    });
+
+    // Completion bar
+    const progressSection = container.createDiv('para-note-section');
+    progressSection.createEl('h3', { text: 'Completion Progress' });
+    const progressBar = progressSection.createDiv('para-progress-bar');
+    progressBar.style.cssText = 'background: var(--background-secondary); height: 30px; border-radius: 8px; overflow: hidden; position: relative;';
+
+    const progressFill = progressBar.createDiv('para-progress-fill');
+    progressFill.style.cssText = `background: linear-gradient(90deg, #10b981, #059669); width: ${completionRate}%; height: 100%; transition: width 0.3s ease;`;
+
+    const progressText = progressBar.createDiv('para-progress-text');
+    progressText.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: 600; color: var(--text-normal);';
+    progressText.textContent = `${completionRate}%`;
+
+    // Open tasks
+    const openTasks = tasks.filter(t => !t.completed);
+    if (openTasks.length > 0) {
+      const section = container.createDiv('para-note-section');
+      section.createEl('h3', { text: `⬜ Open Tasks (${openTasks.length})` });
+
+      const list = section.createEl('ul');
+      list.style.cssText = 'list-style: none; padding-left: 0;';
+
+      openTasks.forEach(task => {
+        const item = list.createEl('li');
+        item.style.cssText = 'padding: 8px; background: var(--background-secondary); margin-bottom: 6px; border-radius: 6px;';
+
+        let taskHTML = `<input type="checkbox" disabled style="margin-right: 8px;"> ${task.text}`;
+
+        if (task.dueDate) {
+          const dueDate = new Date(task.dueDate);
+          const now = new Date();
+          const isOverdue = dueDate < now;
+          const dueDateStr = task.dueDate;
+
+          taskHTML += ` <span style="color: ${isOverdue ? '#ef4444' : 'var(--text-muted)'}; font-size: 0.85em; margin-left: 8px;">📅 ${dueDateStr}</span>`;
+        }
+
+        item.innerHTML = taskHTML;
+      });
+    }
+
+    // Completed tasks
+    const completedTasks = tasks.filter(t => t.completed);
+    if (completedTasks.length > 0) {
+      const section = container.createDiv('para-note-section');
+      section.createEl('h3', { text: `✅ Completed Tasks (${completedTasks.length})` });
+
+      const list = section.createEl('ul');
+      list.style.cssText = 'list-style: none; padding-left: 0;';
+
+      completedTasks.slice(0, 10).forEach(task => {
+        const item = list.createEl('li');
+        item.style.cssText = 'padding: 8px; background: var(--background-secondary); margin-bottom: 6px; border-radius: 6px; opacity: 0.7;';
+
+        let taskHTML = `<input type="checkbox" checked disabled style="margin-right: 8px;"> <s>${task.text}</s>`;
+
+        if (task.completionDate) {
+          taskHTML += ` <span style="color: var(--text-muted); font-size: 0.85em; margin-left: 8px;">✅ ${task.completionDate}</span>`;
+        }
+
+        item.innerHTML = taskHTML;
+      });
+
+      if (completedTasks.length > 10) {
+        section.createEl('p', {
+          text: `...and ${completedTasks.length - 10} more completed`,
+          attr: { style: 'color: var(--text-muted); font-size: 0.85em; font-style: italic;' }
+        });
+      }
+    }
   }
 
   async onClose() {
