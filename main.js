@@ -62,6 +62,38 @@ class PARAVisualizerView extends ItemView {
       })
     );
 
+    // Listen for file renames/moves
+    this.registerEvent(
+      this.app.vault.on('rename', async (file, oldPath) => {
+        // Refresh vault data when any file is renamed (paths change)
+        await this.collectVaultData();
+
+        // If we're in note view and the current note was moved, update it
+        const activeFile = this.app.workspace.getActiveFile();
+        if (this.scope === 'note' && activeFile) {
+          await this.updateCurrentNoteData();
+          this.render();
+        }
+      })
+    );
+
+    // Listen for file deletions
+    this.registerEvent(
+      this.app.vault.on('delete', async (file) => {
+        // Refresh vault data
+        await this.collectVaultData();
+
+        // If we're in note view, check if current note still exists
+        const activeFile = this.app.workspace.getActiveFile();
+        if (this.scope === 'note') {
+          if (!activeFile) {
+            this.currentNoteData = null;
+          }
+          this.render();
+        }
+      })
+    );
+
     this.render();
   }
 
@@ -1412,6 +1444,13 @@ class PARAVisualizerView extends ItemView {
       return;
     }
 
+    // Ensure vault data is loaded
+    if (!this.vaultData) {
+      console.warn('PARA Visualizer: Vault data not loaded yet, skipping note update');
+      this.currentNoteData = null;
+      return;
+    }
+
     const cache = this.app.metadataCache.getFileCache(activeFile);
     if (!cache) {
       this.currentNoteData = null;
@@ -1419,10 +1458,19 @@ class PARAVisualizerView extends ItemView {
     }
 
     // Get note data from vault data
-    const noteData = this.vaultData?.notes.find(n => n.path === activeFile.path);
+    let noteData = this.vaultData.notes.find(n => n.path === activeFile.path);
     if (!noteData) {
-      this.currentNoteData = null;
-      return;
+      console.warn(`PARA Visualizer: Note not found in vault data: ${activeFile.path}`);
+      console.warn('This may happen after moving a file. Refreshing vault data...');
+      // Refresh vault data and try again
+      await this.collectVaultData();
+      noteData = this.vaultData.notes.find(n => n.path === activeFile.path);
+      if (!noteData) {
+        console.error(`PARA Visualizer: Note still not found after refresh: ${activeFile.path}`);
+        this.currentNoteData = null;
+        return;
+      }
+      console.log('PARA Visualizer: Note found after vault refresh');
     }
 
     // Find incoming links (what notes link TO this one)
