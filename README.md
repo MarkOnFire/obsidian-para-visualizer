@@ -59,12 +59,19 @@ Switch to **Current Note View** to see:
    - **Incoming Links** (⬅️): Notes that link TO this note (what references this?)
    - **Outgoing Links** (➡️): Notes that this note links TO (what does this reference?)
    - **Sibling Notes** (👥): Other notes in the same folder
-   - **Related by Tags** (🔗): Notes sharing tags with this note
+   - **Related by Tags** (🔗): Notes sharing content tags (excludes system tags like `all`, `inbox`, `projects`)
    - **Orphan Detection** (⚠️): Warning if note has no connections
    - **Quick Stats**: Visual metrics for link counts and relationships
    - **Click to Navigate**: Click any linked note to open it
 
-2. **Note Tasks** ✅
+2. **PARA History** 🌊
+   - **Current Location**: See where the note lives now
+   - **Movement Timeline**: Chronological history of PARA location changes with dates
+   - **Flow Diagram**: Visual representation of locations the note has visited
+   - **Movement Statistics**: Total moves, locations visited, first/last move dates
+   - **Automatic Tracking**: The Quick PARA plugin records movements when you relocate files
+
+3. **Note Tasks** ✅
    - Task completion progress bar
    - Open vs. completed task breakdown
    - Due date highlighting (overdue tasks in red)

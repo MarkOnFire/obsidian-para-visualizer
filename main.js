@@ -287,6 +287,9 @@ class PARAVisualizerView extends ItemView {
       case 'note-context':
         this.renderNoteContext(content);
         break;
+      case 'note-history':
+        this.renderNoteHistory(content);
+        break;
       case 'note-tasks':
         this.renderNoteTasks(content);
         break;
@@ -333,6 +336,7 @@ class PARAVisualizerView extends ItemView {
     } else {
       tabs = [
         { id: 'note-context', label: 'Note Context', icon: '🔍' },
+        { id: 'note-history', label: 'PARA History', icon: '🌊' },
         { id: 'note-tasks', label: 'Tasks', icon: '✅' }
       ];
     }
@@ -1447,12 +1451,16 @@ class PARAVisualizerView extends ItemView {
       return activeFolder === noteFolder;
     });
 
-    // Find notes with shared tags
+    // Find notes with shared tags (exclude system tags)
+    const systemTags = ['all', 'inbox', 'projects', 'areas', 'resources', 'archive'];
+    const contentTags = noteData.tags.filter(tag => !systemTags.includes(tag.toLowerCase()));
+
     const relatedByTag = [];
-    if (noteData.tags.length > 0) {
+    if (contentTags.length > 0) {
       this.vaultData.notes.forEach(n => {
         if (n.path === activeFile.path) return;
-        const sharedTags = n.tags.filter(tag => noteData.tags.includes(tag));
+        const nContentTags = n.tags.filter(tag => !systemTags.includes(tag.toLowerCase()));
+        const sharedTags = nContentTags.filter(tag => contentTags.includes(tag));
         if (sharedTags.length > 0) {
           relatedByTag.push({
             note: n,
@@ -1668,6 +1676,189 @@ class PARAVisualizerView extends ItemView {
         <div style="font-size: 0.9em;">This note has no connections to other notes. Consider linking it to related content.</div>
       `;
     }
+  }
+
+  renderNoteHistory(container) {
+    if (!this.currentNoteData) {
+      container.createDiv('para-empty-state').innerHTML = `
+        <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+          <p>📝 No note selected</p>
+          <p style="font-size: 0.9em;">Open a note to see its PARA history</p>
+        </div>
+      `;
+      return;
+    }
+
+    const { note } = this.currentNoteData;
+
+    // Header
+    const header = container.createDiv('para-note-header');
+    header.createEl('h2', { text: `PARA Journey: ${note.basename}` });
+
+    // Current location
+    const currentSection = container.createDiv('para-note-section');
+    currentSection.createEl('h3', { text: '📍 Current Location' });
+    const paraColor = PARA_COLORS[note.paraLocation] || '#6b7280';
+    currentSection.innerHTML += `
+      <div style="padding: 16px; background: ${paraColor}; color: white; border-radius: 8px; text-align: center; font-size: 18px; font-weight: 600; margin-top: 8px;">
+        ${note.paraLocation.toUpperCase()}
+      </div>
+    `;
+
+    // Check if there's any history
+    if (!note.paraHistory || note.paraHistory.length === 0) {
+      const noHistorySection = container.createDiv('para-note-section');
+      noHistorySection.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+          <p>📋 No movement history recorded</p>
+          <p style="font-size: 0.9em;">This note hasn't moved between PARA locations yet.</p>
+          <p style="font-size: 0.9em; margin-top: 12px;">The Quick PARA plugin tracks movements automatically when you move files between PARA folders.</p>
+        </div>
+      `;
+      return;
+    }
+
+    // History timeline
+    const timelineSection = container.createDiv('para-note-section');
+    timelineSection.createEl('h3', { text: '📜 Movement History' });
+    timelineSection.createEl('p', {
+      text: `This note has moved ${note.paraHistory.length} time${note.paraHistory.length > 1 ? 's' : ''}`,
+      attr: { style: 'color: var(--text-muted); font-size: 0.9em; margin-bottom: 16px;' }
+    });
+
+    const timeline = timelineSection.createDiv('para-history-timeline');
+    timeline.style.cssText = 'position: relative; padding-left: 32px;';
+
+    // Add vertical line
+    const line = timeline.createDiv('para-history-line');
+    line.style.cssText = 'position: absolute; left: 11px; top: 0; bottom: 0; width: 2px; background: var(--background-modifier-border);';
+
+    // Sort history by date (most recent first)
+    const sortedHistory = [...note.paraHistory].sort((a, b) => {
+      const dateA = new Date(a.timestamp || a.date);
+      const dateB = new Date(b.timestamp || b.date);
+      return dateB - dateA;
+    });
+
+    sortedHistory.forEach((move, index) => {
+      const item = timeline.createDiv('para-history-item');
+      item.style.cssText = 'position: relative; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--background-modifier-border);';
+
+      // Dot
+      const dot = item.createDiv('para-history-dot');
+      dot.style.cssText = 'position: absolute; left: -26px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: var(--interactive-accent); border: 2px solid var(--background-primary);';
+
+      // Date
+      const date = item.createDiv('para-history-date');
+      const moveDate = new Date(move.timestamp || move.date);
+      const dateStr = moveDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      const timeStr = moveDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      date.style.cssText = 'font-size: 0.85em; color: var(--text-muted); margin-bottom: 4px;';
+      date.textContent = `${dateStr} at ${timeStr}`;
+
+      // Movement
+      const movement = item.createDiv('para-history-movement');
+      movement.style.cssText = 'display: flex; align-items: center; gap: 12px; margin-top: 8px;';
+
+      const fromColor = PARA_COLORS[move.from] || '#6b7280';
+      const toColor = PARA_COLORS[move.to] || '#6b7280';
+
+      movement.innerHTML = `
+        <span style="background: ${fromColor}; color: white; padding: 4px 12px; border-radius: 6px; font-weight: 500; font-size: 0.9em;">
+          ${move.from.toUpperCase()}
+        </span>
+        <span style="font-size: 1.2em;">→</span>
+        <span style="background: ${toColor}; color: white; padding: 4px 12px; border-radius: 6px; font-weight: 500; font-size: 0.9em;">
+          ${move.to.toUpperCase()}
+        </span>
+      `;
+
+      // Add context if this was the most recent move
+      if (index === 0) {
+        const badge = item.createDiv('para-history-badge');
+        badge.style.cssText = 'display: inline-block; background: var(--interactive-accent); color: var(--text-on-accent); padding: 2px 8px; border-radius: 4px; font-size: 0.75em; font-weight: 600; margin-top: 8px;';
+        badge.textContent = 'MOST RECENT';
+      }
+    });
+
+    // Flow visualization
+    const flowSection = container.createDiv('para-note-section');
+    flowSection.createEl('h3', { text: '🌊 PARA Flow Diagram' });
+
+    // Get unique locations in order
+    const locations = ['inbox', 'projects', 'areas', 'resources', 'archive'];
+    const visitedLocations = new Set();
+
+    // Add all locations from history
+    sortedHistory.forEach(move => {
+      visitedLocations.add(move.from);
+      visitedLocations.add(move.to);
+    });
+    visitedLocations.add(note.paraLocation); // Current location
+
+    const flowDiagram = flowSection.createDiv('para-flow-diagram');
+    flowDiagram.style.cssText = 'display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 12px; padding: 24px; background: var(--background-secondary); border-radius: 8px;';
+
+    locations.forEach(location => {
+      if (visitedLocations.has(location)) {
+        const box = flowDiagram.createDiv('para-flow-box');
+        const color = PARA_COLORS[location] || '#6b7280';
+        const isCurrent = location === note.paraLocation;
+
+        box.style.cssText = `
+          background: ${color};
+          color: white;
+          padding: 12px 20px;
+          border-radius: 8px;
+          font-weight: 600;
+          text-align: center;
+          ${isCurrent ? 'box-shadow: 0 0 0 3px var(--interactive-accent); transform: scale(1.1);' : ''}
+        `;
+        box.textContent = location.toUpperCase();
+
+        if (isCurrent) {
+          const currentBadge = box.createDiv();
+          currentBadge.style.cssText = 'font-size: 0.7em; margin-top: 4px; opacity: 0.9;';
+          currentBadge.textContent = '(Current)';
+        }
+      }
+    });
+
+    // Stats
+    const statsSection = container.createDiv('para-note-section');
+    statsSection.createEl('h3', { text: '📊 Movement Statistics' });
+
+    const stats = statsSection.createDiv('para-note-stats');
+    stats.style.cssText = 'display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 12px;';
+
+    const firstMove = sortedHistory[sortedHistory.length - 1];
+    const lastMove = sortedHistory[0];
+    const firstDate = firstMove ? new Date(firstMove.timestamp || firstMove.date) : null;
+    const lastDate = lastMove ? new Date(lastMove.timestamp || lastMove.date) : null;
+
+    const statBoxes = [
+      { label: 'Total Moves', value: note.paraHistory.length, icon: '🔄' },
+      { label: 'Locations Visited', value: visitedLocations.size, icon: '📍' },
+      {
+        label: 'First Move',
+        value: firstDate ? firstDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A',
+        icon: '🕐'
+      },
+      {
+        label: 'Last Move',
+        value: lastDate ? lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A',
+        icon: '🕑'
+      }
+    ];
+
+    statBoxes.forEach(stat => {
+      const box = stats.createDiv('para-stat-box');
+      box.style.cssText = 'background: var(--background-secondary); padding: 12px; border-radius: 8px; text-align: center;';
+      box.innerHTML = `
+        <div style="font-size: 1.2em; margin-bottom: 4px;">${stat.icon} ${stat.value}</div>
+        <div style="font-size: 0.85em; color: var(--text-muted);">${stat.label}</div>
+      `;
+    });
   }
 
   renderNoteTasks(container) {
