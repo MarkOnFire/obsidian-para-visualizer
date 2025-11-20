@@ -486,3 +486,326 @@
 .para-scope-toggle button:hover {
   opacity: 0.8;
 }
+
+/* Review Radar */
+.para-review-view {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.para-review-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 1.2fr) minmax(200px, 0.8fr);
+  gap: 16px;
+}
+
+.para-review-chart,
+.para-review-insights {
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.para-review-canvas {
+  width: 100%;
+  height: 360px;
+  display: block;
+}
+
+.para-review-insights ul {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.8;
+}
+
+.para-review-location-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.para-review-location-card {
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+  padding: 14px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.para-review-location-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.para-review-score {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.para-review-location-meta p {
+  margin: 4px 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.para-review-overdue {
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.para-review-overdue ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.para-review-overdue-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+  cursor: pointer;
+}
+
+.para-review-overdue-item:last-child {
+  border-bottom: none;
+}
+
+.para-review-overdue-item:hover {
+  background-color: var(--background-modifier-hover);
+  padding-left: 8px;
+  border-radius: 4px;
+}
+
+.para-review-overdue-meta {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Pipeline Timeline */
+.para-pipeline-view {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.para-pipeline-chart,
+.para-pipeline-insights,
+.para-pipeline-durations,
+.para-pipeline-transitions {
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.para-pipeline-canvas {
+  width: 100%;
+  height: 360px;
+  display: block;
+}
+
+.para-pipeline-legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.para-pipeline-insights ul {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.8;
+}
+
+.para-pipeline-duration-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.para-pipeline-duration-card {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 12px;
+  background-color: var(--background-primary);
+}
+
+.para-pipeline-duration-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.para-pipeline-duration-value {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.para-pipeline-duration-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Task Calendar */
+.para-task-calendar-view {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.para-task-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.para-task-calendar-cell {
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid var(--background-modifier-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.para-task-calendar-cell.today {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 1px var(--interactive-accent);
+}
+
+.para-task-calendar-cell.past {
+  opacity: 0.85;
+}
+
+.para-task-calendar-cell-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.para-task-calendar-day {
+  font-weight: 600;
+}
+
+.para-task-calendar-date {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-normal);
+}
+
+.para-task-calendar-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: var(--background-modifier-hover);
+  position: relative;
+}
+
+.para-task-calendar-bar.empty {
+  align-items: center;
+  justify-content: center;
+  height: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 4px;
+}
+
+.para-task-calendar-bar-segment {
+  height: 100%;
+}
+
+.para-task-calendar-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.para-task-calendar-item {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.para-task-calendar-item.overdue {
+  color: var(--text-error);
+}
+
+.para-task-calendar-status {
+  width: 16px;
+  text-align: center;
+}
+
+.para-task-calendar-para {
+  margin-left: auto;
+  font-size: 10px;
+}
+
+.para-task-calendar-more {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.para-task-calendar-stats,
+.para-task-calendar-overdue {
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.para-task-calendar-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.para-task-calendar-total {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.para-task-calendar-total-value {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.para-task-calendar-total-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.para-task-calendar-overdue-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 12px 0 0 0;
+}
+
+.para-task-calendar-overdue-list li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+  cursor: pointer;
+}
+
+.para-task-calendar-overdue-meta {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}

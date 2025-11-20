@@ -37,14 +37,32 @@ Toggle between modes using the buttons at the top of the visualizer panel.
    - Open vs. completed task breakdown
    - Identify bottlenecks in your workflow
 
-5. **Tag Cloud** 🏷️
+5. **Review Radar** 📍
+   - Radar chart that shows how each PARA bucket tracks against desired review cadences
+   - Highlights overdue notes and surfaces the stalest areas/projects/resources
+   - Honors optional `review_interval`/`review_every` frontmatter per note (falls back to PARA defaults)
+   - Quickly jump to overdue files with a single click
+
+6. **Pipeline Timeline** 📈
+   - Stacked timeline of where notes live (Inbox → Projects → Areas → Resources → Archive)
+   - Uses `para_history` to show movement volume and stage durations
+   - Highlights busiest days, top transitions, and the slowest stage in your pipeline
+   - Average time-in-stage cards make bottlenecks obvious
+
+7. **Task Load Calendar** 🗓️
+   - 4-week calendar grid of tasks with due dates, color-coded by PARA location
+   - Summaries for overdue tasks, upcoming week load, and busiest day
+   - Quick links to open overdue tasks directly from the panel
+   - Shows load distribution per PARA bucket across the visible window
+
+8. **Tag Cloud** 🏷️
    - Dynamic word cloud of your most-used tags
    - Font size reflects tag frequency
    - Opacity shows recent activity vs. historical usage
    - Click tags to search vault
    - Excludes system tags (all, inbox, projects, etc.)
 
-6. **Statistics Dashboard** 📊
+9. **Statistics Dashboard** 📊
    - Vault overview metrics (total notes, tags, links)
    - PARA distribution with percentages
    - Recent activity tracking (24h, 7d, 30d, 90d)
@@ -193,6 +211,17 @@ The plugin will:
 - Extract tags from both frontmatter and inline `#tags`
 - Track file creation/modification timestamps
 - Map wikilink connections
+
+### Optional Review Cadence Metadata
+
+- Add `review_interval`, `review_every`, or `review` to your frontmatter to specify the desired review cadence for that note (supports numbers in days or strings like `2w`, `1 month`, `weekly`)
+- Notes without an explicit interval fall back to sensible PARA defaults (Inbox 2d, Projects 7d, Areas 30d, Resources 90d, Archive 180d)
+- The Review Radar uses these values to determine health scores and overdue status
+
+### Due Dates for Task Calendar
+
+- Add due dates in your tasks using the standard `📅 YYYY-MM-DD` syntax so the Task Load Calendar can place them on the grid
+- The calendar highlights overdue, current-week, and future tasks, and groups them by PARA location
 
 ## How It Works
 

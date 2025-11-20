@@ -11,6 +11,14 @@ const PARA_COLORS = {
   archive: '#6b7280'
 };
 
+const DEFAULT_REVIEW_INTERVALS = {
+  inbox: 2,
+  projects: 7,
+  areas: 30,
+  resources: 90,
+  archive: 180
+};
+
 class PARAVisualizerView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
@@ -149,6 +157,8 @@ class PARAVisualizerView extends ItemView {
       // Extract PARA history if available
       const paraHistory = cache.frontmatter?.para_history || [];
 
+      const reviewInterval = this.getReviewIntervalFromFrontmatter(cache.frontmatter);
+
       // Build note object
       const noteData = {
         path: file.path,
@@ -159,7 +169,8 @@ class PARAVisualizerView extends ItemView {
         created: file.stat.ctime,
         modified: file.stat.mtime,
         size: file.stat.size,
-        links: []
+        links: [],
+        reviewInterval: reviewInterval
       };
 
       // Extract links
@@ -279,6 +290,96 @@ class PARAVisualizerView extends ItemView {
     return tasks;
   }
 
+  getReviewIntervalFromFrontmatter(frontmatter) {
+    if (!frontmatter) return null;
+    const rawValue =
+      frontmatter.review_interval ??
+      frontmatter.reviewInterval ??
+      frontmatter.review_every ??
+      frontmatter.reviewEvery ??
+      frontmatter.review;
+    return this.parseReviewIntervalValue(rawValue);
+  }
+
+  parseReviewIntervalValue(value) {
+    if (value === undefined || value === null) return null;
+    if (typeof value === 'number' && isFinite(value)) {
+      return value > 0 ? value : null;
+    }
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (!normalized.length) return null;
+      if (normalized === 'daily') return 1;
+      if (normalized === 'weekly') return 7;
+      if (normalized === 'monthly') return 30;
+      if (normalized === 'quarterly') return 90;
+
+      const match = normalized.match(/(\d+)\s*(d|day|days|w|wk|week|weeks|m|mo|month|months)/);
+      if (match) {
+        const amount = parseInt(match[1], 10);
+        const unit = match[2];
+        if (!isNaN(amount) && amount > 0) {
+          if (unit.startsWith('d')) return amount;
+          if (unit.startsWith('w')) return amount * 7;
+          if (unit.startsWith('m')) return amount * 30;
+        }
+      }
+
+      const numeric = parseInt(normalized, 10);
+      return !isNaN(numeric) && numeric > 0 ? numeric : null;
+    }
+    return null;
+  }
+
+  getReviewIntervalForNote(note) {
+    if (note.reviewInterval && note.reviewInterval > 0) {
+      return note.reviewInterval;
+    }
+    return this.getDefaultReviewInterval(note.paraLocation);
+  }
+
+  getDefaultReviewInterval(location) {
+    return DEFAULT_REVIEW_INTERVALS[location] || 30;
+  }
+
+  formatDays(value) {
+    if (value === null || value === undefined || !isFinite(value)) return '—';
+    if (value < 1) return '<1 day';
+    const rounded = Math.round(value);
+    return rounded === 1 ? '1 day' : `${rounded} days`;
+  }
+
+  hexToRgba(hex, alpha) {
+    const sanitized = hex.replace('#', '');
+    const bigint = parseInt(sanitized, 16);
+    if (isNaN(bigint)) {
+      return `rgba(59, 130, 246, ${alpha})`;
+    }
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  normalizeLocation(value) {
+    if (!value || typeof value !== 'string') return 'unknown';
+    return value.toLowerCase();
+  }
+
+  getLocationAtTime(states, timestamp) {
+    if (!states || states.length === 0) return null;
+    if (timestamp < states[0].timestamp) return null;
+    let location = states[0].location;
+    for (const state of states) {
+      if (timestamp >= state.timestamp) {
+        location = state.location;
+      } else {
+        break;
+      }
+    }
+    return location;
+  }
+
   render() {
     const container = this.containerEl.children[1];
     container.empty();
@@ -315,6 +416,15 @@ class PARAVisualizerView extends ItemView {
         break;
       case 'stats':
         this.renderStats(content);
+        break;
+      case 'review':
+        this.renderReviewRadar(content);
+        break;
+      case 'pipeline':
+        this.renderPipelineTimeline(content);
+        break;
+      case 'task-calendar':
+        this.renderTaskCalendar(content);
         break;
       case 'note-context':
         this.renderNoteContext(content);
@@ -362,6 +472,9 @@ class PARAVisualizerView extends ItemView {
         { id: 'graph', label: 'Knowledge Graph', icon: '🕸️' },
         { id: 'sankey', label: 'PARA Flow', icon: '🌊' },
         { id: 'tasks', label: 'Task Analytics', icon: '✅' },
+        { id: 'review', label: 'Review Radar', icon: '📍' },
+        { id: 'pipeline', label: 'Pipeline Timeline', icon: '📈' },
+        { id: 'task-calendar', label: 'Task Load Calendar', icon: '🗓️' },
         { id: 'tags', label: 'Tag Cloud', icon: '🏷️' },
         { id: 'stats', label: 'Statistics', icon: '📊' }
       ];
@@ -1435,6 +1548,787 @@ class PARAVisualizerView extends ItemView {
     topTags.forEach(item => {
       tagsList.createEl('li', { text: `#${item.tag} (${item.count})` });
     });
+  }
+
+  renderReviewRadar(container) {
+    const reviewData = this.computeReviewStats();
+    const reviewView = container.createDiv('para-review-view');
+
+    if (reviewData.locations.length === 0) {
+      const empty = reviewView.createDiv('para-empty');
+      empty.createDiv('para-empty-icon').setText('🧭');
+      empty.createDiv('para-empty-message').setText('No PARA notes available to calculate review cadence.');
+      return;
+    }
+
+    const summary = reviewView.createDiv('para-stats-panel');
+    const cards = [
+      { label: 'Overall Health', value: `${reviewData.overallHealth}%` },
+      { label: 'Overdue Reviews', value: reviewData.overdueNotes.length.toString() },
+      { label: 'Freshest Area', value: reviewData.freshest ? `${reviewData.freshest.label} (${this.formatDays(reviewData.freshest.avgDays)} ago)` : '—' }
+    ];
+
+    cards.forEach(cardData => {
+      const card = summary.createDiv('para-stat-card');
+      card.createDiv('para-stat-value').setText(cardData.value);
+      card.createDiv('para-stat-label').setText(cardData.label);
+    });
+
+    const layout = reviewView.createDiv('para-review-layout');
+    const chartWrapper = layout.createDiv('para-review-chart');
+    const canvas = chartWrapper.createEl('canvas', { cls: 'para-review-canvas' });
+
+    this.drawReviewRadarChart(canvas, reviewData.locations);
+
+    const insights = layout.createDiv('para-review-insights');
+    insights.createEl('h3', { text: 'Insights' });
+    const list = insights.createEl('ul');
+
+    list.createEl('li', { text: `Review cadence health is at ${reviewData.overallHealth}% across tracked PARA buckets.` });
+
+    if (reviewData.stalest) {
+      list.createEl('li', {
+        text: `${reviewData.stalest.label} is the stalest area (${Math.round(reviewData.stalest.avgDays)} days since average touch; target ${Math.round(reviewData.stalest.avgTarget)} days).`
+      });
+    }
+
+    if (reviewData.overdueNotes.length > 0) {
+      const worst = reviewData.overdueNotes[0];
+      list.createEl('li', {
+        text: `${worst.note.basename} is overdue by ${Math.round(worst.overdueBy)} days (target ${worst.target} days).`
+      });
+    } else {
+      list.createEl('li', { text: 'No notes are currently overdue for review. 🎉' });
+    }
+
+    const locationGrid = reviewView.createDiv('para-review-location-grid');
+    reviewData.locations.forEach(stat => {
+      const card = locationGrid.createDiv('para-review-location-card');
+      const header = card.createDiv('para-review-location-header');
+      const badge = header.createSpan('para-location-badge');
+      badge.addClass(stat.location);
+      badge.setText(stat.label.toUpperCase());
+
+      header.createSpan({ text: `${Math.round(stat.score * 100)}% healthy`, cls: 'para-review-score' });
+
+      const meta = card.createDiv('para-review-location-meta');
+
+      meta.createEl('p', { text: `Avg touch: ${this.formatDays(stat.avgDays)} (target ${this.formatDays(stat.avgTarget)})` });
+      meta.createEl('p', { text: `Tracked notes: ${stat.noteCount}` });
+      meta.createEl('p', { text: `Overdue: ${stat.overdueCount}` });
+      meta.createEl('p', { text: `Last touched: ${stat.lastTouched ? new Date(stat.lastTouched).toLocaleDateString() : '—'}` });
+    });
+
+    const overdueSection = reviewView.createDiv('para-review-overdue');
+    overdueSection.createEl('h3', { text: 'Notes Needing Review' });
+
+    if (reviewData.overdueNotes.length === 0) {
+      overdueSection.createEl('p', { text: 'Everything is within the desired cadence.' });
+    } else {
+      const listEl = overdueSection.createEl('ul');
+      reviewData.overdueNotes.slice(0, 8).forEach(item => {
+        const li = listEl.createEl('li');
+        li.addClass('para-review-overdue-item');
+        li.innerHTML = `
+          <strong>${item.note.basename}</strong>
+          <span class="para-review-overdue-meta">
+            ${item.note.paraLocation.toUpperCase()} • ${this.formatDays(item.daysSince)} since touch • Overdue by ${Math.round(item.overdueBy)} days
+          </span>
+        `;
+        li.addEventListener('click', () => {
+          this.app.workspace.openLinkText(item.note.path, '', false);
+        });
+      });
+      if (reviewData.overdueNotes.length > 8) {
+        overdueSection.createEl('p', {
+          text: `${reviewData.overdueNotes.length - 8} more notes are overdue.`,
+          attr: { style: 'color: var(--text-muted); font-size: 0.9em;' }
+        });
+      }
+    }
+  }
+
+  drawReviewRadarChart(canvas, locations) {
+    const ratio = window.devicePixelRatio || 1;
+    const displayWidth = canvas.offsetWidth || canvas.parentElement?.offsetWidth || 400;
+    const displayHeight = 360;
+    canvas.width = displayWidth * ratio;
+    canvas.height = displayHeight * ratio;
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(ratio, ratio);
+
+    const centerX = displayWidth / 2;
+    const centerY = displayHeight / 2;
+    const radius = Math.min(displayWidth, displayHeight) / 2 - 40;
+    const axisCount = locations.length;
+    const rings = 4;
+
+    ctx.strokeStyle = 'var(--background-modifier-border)';
+    ctx.lineWidth = 1;
+
+    for (let i = 1; i <= rings; i++) {
+      const ringRadius = (radius / rings) * i;
+      ctx.beginPath();
+      for (let axis = 0; axis < axisCount; axis++) {
+        const angle = (Math.PI * 2 * axis) / axisCount - Math.PI / 2;
+        const x = centerX + Math.cos(angle) * ringRadius;
+        const y = centerY + Math.sin(angle) * ringRadius;
+        axis === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = 'var(--background-modifier-border)';
+    locations.forEach((stat, index) => {
+      const angle = (Math.PI * 2 * index) / axisCount - Math.PI / 2;
+      const x = centerX + Math.cos(angle) * radius;
+      const y = centerY + Math.sin(angle) * radius;
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+
+      ctx.fillStyle = 'var(--text-muted)';
+      ctx.font = '12px sans-serif';
+      const labelX = centerX + Math.cos(angle) * (radius + 20);
+      const labelY = centerY + Math.sin(angle) * (radius + 20);
+      ctx.textAlign = labelX < centerX ? 'right' : 'left';
+      ctx.fillText(`${stat.label} (${Math.round(stat.avgDays)}d / ${Math.round(stat.avgTarget)}d)`, labelX, labelY);
+    });
+
+    ctx.beginPath();
+    locations.forEach((stat, index) => {
+      const angle = (Math.PI * 2 * index) / axisCount - Math.PI / 2;
+      const r = radius * Math.max(0, Math.min(1, stat.score));
+      const x = centerX + Math.cos(angle) * r;
+      const y = centerY + Math.sin(angle) * r;
+      index === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.25)';
+    ctx.strokeStyle = '#3b82f6';
+    ctx.fill();
+    ctx.stroke();
+
+    locations.forEach((stat, index) => {
+      const angle = (Math.PI * 2 * index) / axisCount - Math.PI / 2;
+      const r = radius * stat.score;
+      const x = centerX + Math.cos(angle) * r;
+      const y = centerY + Math.sin(angle) * r;
+      ctx.beginPath();
+      ctx.fillStyle = '#3b82f6';
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  computeReviewStats() {
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    const locations = [];
+    const overdueNotes = [];
+    const order = ['inbox', 'projects', 'areas', 'resources'];
+
+    order.forEach(location => {
+      const notes = this.vaultData.notes.filter(n => n.paraLocation === location);
+      if (notes.length === 0) return;
+
+      let totalDays = 0;
+      let totalTarget = 0;
+      let targetCount = 0;
+      let latestTouch = 0;
+      let overdueCount = 0;
+
+      notes.forEach(note => {
+        const daysSince = (now - note.modified) / dayMs;
+        totalDays += daysSince;
+        latestTouch = Math.max(latestTouch, note.modified);
+        const target = this.getReviewIntervalForNote(note);
+        if (target) {
+          totalTarget += target;
+          targetCount++;
+          if (daysSince > target) {
+            overdueCount++;
+            overdueNotes.push({
+              note,
+              daysSince,
+              target,
+              overdueBy: daysSince - target
+            });
+          }
+        }
+      });
+
+      const avgDays = totalDays / notes.length;
+      const avgTarget = targetCount > 0 ? totalTarget / targetCount : this.getDefaultReviewInterval(location);
+      const score = avgDays <= 0 ? 1 : Math.min(1, avgTarget / avgDays);
+
+      locations.push({
+        location,
+        label: location.charAt(0).toUpperCase() + location.slice(1),
+        avgDays,
+        avgTarget,
+        score,
+        lastTouched: latestTouch,
+        noteCount: notes.length,
+        overdueCount
+      });
+    });
+
+    overdueNotes.sort((a, b) => b.overdueBy - a.overdueBy);
+
+    const overallHealth = locations.length
+      ? Math.round((locations.reduce((sum, loc) => sum + loc.score, 0) / locations.length) * 100)
+      : 0;
+
+    const stalest = locations.reduce((worst, current) => {
+      if (!worst) return current;
+      return current.avgDays > worst.avgDays ? current : worst;
+    }, null);
+
+    const freshest = locations.reduce((best, current) => {
+      if (!best) return current;
+      return current.avgDays < best.avgDays ? current : best;
+    }, null);
+
+    return {
+      locations,
+      overdueNotes,
+      overallHealth,
+      stalest,
+      freshest
+    };
+  }
+
+  renderPipelineTimeline(container) {
+    const pipelineView = container.createDiv('para-pipeline-view');
+    const pipelineData = this.generatePipelineTimelineData();
+
+    if (pipelineData.timeline.length === 0) {
+      const empty = pipelineView.createDiv('para-empty');
+      empty.createDiv('para-empty-icon').setText('📉');
+      empty.createDiv('para-empty-message').setText('Not enough PARA history data to build the pipeline timeline.');
+      return;
+    }
+
+    const totalActive = this.vaultData.notes.filter(n => n.paraLocation !== 'archive').length;
+    const summary = pipelineView.createDiv('para-stats-panel');
+    const cards = [
+      { label: 'Active Pipeline', value: totalActive.toString() },
+      { label: 'Projects Archived (window)', value: (pipelineData.transitionCounts['projects->archive'] || 0).toString() },
+      {
+        label: 'Longest Stage',
+        value: pipelineData.longestStage
+          ? `${pipelineData.longestStage.label} (${this.formatDays(pipelineData.longestStage.duration)})`
+          : '—'
+      }
+    ];
+
+    cards.forEach(cardData => {
+      const card = summary.createDiv('para-stat-card');
+      card.createDiv('para-stat-value').setText(cardData.value);
+      card.createDiv('para-stat-label').setText(cardData.label);
+    });
+
+    const chartSection = pipelineView.createDiv('para-pipeline-chart');
+    chartSection.createEl('h3', { text: 'Pipeline Over Time' });
+    const canvas = chartSection.createEl('canvas', { cls: 'para-pipeline-canvas' });
+    this.drawPipelineTimelineChart(canvas, pipelineData.timeline);
+
+    const legend = chartSection.createDiv('para-pipeline-legend');
+    Object.entries(PARA_COLORS).forEach(([location, color]) => {
+      const item = legend.createDiv('para-graph-legend-item');
+      const colorBox = item.createDiv('para-graph-legend-color');
+      colorBox.style.backgroundColor = color;
+      item.createSpan({ text: location.charAt(0).toUpperCase() + location.slice(1) });
+    });
+
+    const insights = pipelineView.createDiv('para-pipeline-insights');
+    insights.createEl('h3', { text: 'Flow Insights' });
+    const list = insights.createEl('ul');
+    list.style.paddingLeft = '20px';
+
+    if (pipelineData.busiestDay) {
+      const dominant = pipelineData.busiestDay.dominant
+        ? pipelineData.busiestDay.dominant.charAt(0).toUpperCase() + pipelineData.busiestDay.dominant.slice(1)
+        : 'Mixed';
+      list.createEl('li', {
+        text: `${pipelineData.busiestDay.date} was the busiest day (${pipelineData.busiestDay.total} notes) dominated by ${dominant}.`
+      });
+    }
+
+    if (pipelineData.longestStage) {
+      list.createEl('li', {
+        text: `${pipelineData.longestStage.label} keeps notes the longest (${this.formatDays(pipelineData.longestStage.duration)} on average).`
+      });
+    }
+
+    if (pipelineData.topTransition) {
+      list.createEl('li', {
+        text: `${pipelineData.topTransition.key} happened ${pipelineData.topTransition.value} times in this window.`
+      });
+    }
+
+    const durationSection = pipelineView.createDiv('para-pipeline-durations');
+    durationSection.createEl('h3', { text: 'Average Time in Stage' });
+    const durationGrid = durationSection.createDiv('para-pipeline-duration-grid');
+
+    ['inbox', 'projects', 'areas', 'resources', 'archive'].forEach(location => {
+      const card = durationGrid.createDiv('para-pipeline-duration-card');
+      const header = card.createDiv('para-pipeline-duration-header');
+      const badge = header.createSpan('para-location-badge');
+      badge.addClass(location);
+      badge.setText(location.toUpperCase());
+
+      const duration = pipelineData.avgStageDurations[location];
+      card.createDiv('para-pipeline-duration-value').setText(
+        duration ? this.formatDays(duration) : 'No data'
+      );
+      card.createDiv('para-pipeline-duration-label').setText('Avg time before moving');
+    });
+
+    const transitionSection = pipelineView.createDiv('para-pipeline-transitions');
+    transitionSection.createEl('h3', { text: 'Top Transitions' });
+    const transitionList = transitionSection.createEl('ol');
+    transitionList.style.paddingLeft = '20px';
+
+    const topTransitions = Object.entries(pipelineData.transitionCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+
+    if (topTransitions.length === 0) {
+      transitionSection.createEl('p', { text: 'No tracked transitions during this window.' });
+    } else {
+      topTransitions.forEach(([key, value]) => {
+        transitionList.createEl('li', { text: `${key} — ${value} notes` });
+      });
+    }
+  }
+
+  drawPipelineTimelineChart(canvas, timeline) {
+    const ratio = window.devicePixelRatio || 1;
+    const displayWidth = canvas.offsetWidth || canvas.parentElement?.offsetWidth || 600;
+    const displayHeight = 360;
+    canvas.width = displayWidth * ratio;
+    canvas.height = displayHeight * ratio;
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(ratio, ratio);
+
+    const padding = 40;
+    const chartWidth = displayWidth - padding * 2;
+    const chartHeight = displayHeight - padding * 2;
+    const categories = ['inbox', 'projects', 'areas', 'resources', 'archive'];
+    const maxTotal = Math.max(...timeline.map(day => day.total), 1);
+    const stepCount = timeline.length > 1 ? timeline.length - 1 : 1;
+
+    ctx.strokeStyle = '#ccc';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding, padding);
+    ctx.lineTo(padding, displayHeight - padding);
+    ctx.lineTo(displayWidth - padding, displayHeight - padding);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#eee';
+    for (let i = 1; i <= 4; i++) {
+      const y = padding + (chartHeight / 4) * i;
+      ctx.beginPath();
+      ctx.moveTo(padding, y);
+      ctx.lineTo(displayWidth - padding, y);
+      ctx.stroke();
+    }
+
+    const stackedTotals = new Array(timeline.length).fill(0);
+
+    categories.forEach(location => {
+      const topPoints = [];
+      const bottomPoints = [];
+      timeline.forEach((day, index) => {
+        const base = stackedTotals[index];
+        const value = day.counts[location] || 0;
+        const top = base + value;
+        const x = padding + (index / stepCount) * chartWidth;
+        const yTop = displayHeight - padding - (top / maxTotal) * chartHeight;
+        const yBase = displayHeight - padding - (base / maxTotal) * chartHeight;
+        topPoints.push({ x, y: yTop });
+        bottomPoints.push({ x, y: yBase });
+        stackedTotals[index] = top;
+      });
+
+      ctx.beginPath();
+      topPoints.forEach((point, idx) => (idx === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y)));
+      for (let i = bottomPoints.length - 1; i >= 0; i--) {
+        const point = bottomPoints[i];
+        ctx.lineTo(point.x, point.y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = this.hexToRgba(PARA_COLORS[location], 0.3);
+      ctx.strokeStyle = this.hexToRgba(PARA_COLORS[location], 0.7);
+      ctx.fill();
+      ctx.stroke();
+    });
+
+    ctx.fillStyle = '#666';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    const labelIndexes = [0, Math.floor(timeline.length / 2), timeline.length - 1];
+    labelIndexes.forEach(index => {
+      const day = timeline[index];
+      const x = padding + (index / stepCount) * chartWidth;
+      ctx.fillText(day.date, x, displayHeight - padding + 20);
+    });
+
+    ctx.save();
+    ctx.translate(15, displayHeight / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('Notes per PARA stage', 0, 0);
+    ctx.restore();
+  }
+
+  generatePipelineTimelineData() {
+    const dayMs = 24 * 60 * 60 * 1000;
+    const timeline = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - (this.dateRange - 1));
+
+    for (let i = 0; i < this.dateRange; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      timeline.push({
+        date: date.toISOString().split('T')[0],
+        timestamp: date.getTime(),
+        counts: {
+          inbox: 0,
+          projects: 0,
+          areas: 0,
+          resources: 0,
+          archive: 0
+        },
+        total: 0,
+        dominant: null
+      });
+    }
+
+    const transitionCounts = {};
+    const stageDurations = {
+      inbox: [],
+      projects: [],
+      areas: [],
+      resources: [],
+      archive: []
+    };
+
+    this.vaultData.notes.forEach(note => {
+      const history = (note.paraHistory || [])
+        .map(entry => {
+          const rawTimestamp =
+            entry.timestamp ??
+            entry.time ??
+            (entry.date ? new Date(entry.date).getTime() : null);
+          if (!rawTimestamp || !isFinite(rawTimestamp)) return null;
+
+          return {
+            timestamp: Number(rawTimestamp),
+            from: this.normalizeLocation(entry.from ?? entry.from_location ?? entry.fromLocation ?? note.paraLocation),
+            to: this.normalizeLocation(entry.to ?? entry.to_location ?? entry.toLocation ?? note.paraLocation)
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.timestamp - b.timestamp);
+
+      const creationTs = note.created || 0;
+      const initialLocation = history.length > 0
+        ? this.normalizeLocation(history[0].from || note.paraLocation)
+        : this.normalizeLocation(note.paraLocation);
+
+      const states = [{ timestamp: creationTs, location: initialLocation }];
+      history.forEach(move => {
+        states.push({ timestamp: move.timestamp, location: move.to || states[states.length - 1].location });
+      });
+      states.sort((a, b) => a.timestamp - b.timestamp);
+
+      timeline.forEach(day => {
+        const loc = this.getLocationAtTime(states, day.timestamp + dayMs / 2);
+        if (loc && day.counts[loc] !== undefined) {
+          day.counts[loc]++;
+        }
+      });
+
+      let prevTimestamp = creationTs;
+      let prevLocation = states[0]?.location || initialLocation;
+      history.forEach(move => {
+        const duration = (move.timestamp - prevTimestamp) / dayMs;
+        if (duration >= 0 && stageDurations[prevLocation]) {
+          stageDurations[prevLocation].push(duration);
+        }
+        const key = `${prevLocation}->${move.to}`;
+        transitionCounts[key] = (transitionCounts[key] || 0) + 1;
+        prevTimestamp = move.timestamp;
+        prevLocation = move.to || prevLocation;
+      });
+    });
+
+    timeline.forEach(day => {
+      const entries = Object.entries(day.counts);
+      day.total = entries.reduce((sum, [, value]) => sum + value, 0);
+      const dominant = entries.reduce(
+        (best, [location, value]) => (value > (best?.value || 0) ? { location, value } : best),
+        null
+      );
+      day.dominant = dominant?.location || null;
+    });
+
+    const avgStageDurations = {};
+    Object.entries(stageDurations).forEach(([location, durations]) => {
+      if (durations.length > 0) {
+        avgStageDurations[location] = durations.reduce((sum, value) => sum + value, 0) / durations.length;
+      }
+    });
+
+    const longestStage = Object.entries(avgStageDurations).reduce((best, [location, duration]) => {
+      if (!best || duration > best.duration) {
+        return {
+          location,
+          duration,
+          label: location.charAt(0).toUpperCase() + location.slice(1)
+        };
+      }
+      return best;
+    }, null);
+
+    const busiestDay = timeline.reduce((best, day) => {
+      if (!best || day.total > best.total) return day;
+      return best;
+    }, null);
+
+    const topTransition = Object.entries(transitionCounts).reduce((best, [key, value]) => {
+      if (!best || value > best.value) {
+        return { key, value };
+      }
+      return best;
+    }, null);
+
+    return {
+      timeline,
+      transitionCounts,
+      avgStageDurations,
+      longestStage,
+      busiestDay,
+      topTransition
+    };
+  }
+
+  renderTaskCalendar(container) {
+    const calendarView = container.createDiv('para-task-calendar-view');
+    const tasksWithDueDates = this.vaultData.tasks.all.filter(task => task.dueDate);
+    const calendarData = this.buildTaskCalendarData(tasksWithDueDates);
+
+    const summary = calendarView.createDiv('para-stats-panel');
+    const busiestLabel = calendarData.busiestCell
+      ? `${calendarData.busiestCell.dayLabel} ${calendarData.busiestCell.dateLabel} (${calendarData.busiestCell.tasks.length})`
+      : '—';
+
+    const summaryCards = [
+      { label: 'Tasks w/ due dates', value: tasksWithDueDates.length.toString() },
+      { label: 'Overdue tasks', value: calendarData.overdueTasks.length.toString() },
+      { label: 'Due next 7 days', value: calendarData.upcomingWeekCount.toString() },
+      { label: 'Busiest day', value: busiestLabel }
+    ];
+
+    summaryCards.forEach(cardData => {
+      const card = summary.createDiv('para-stat-card');
+      card.createDiv('para-stat-value').setText(cardData.value);
+      card.createDiv('para-stat-label').setText(cardData.label);
+    });
+
+    const grid = calendarView.createDiv('para-task-calendar-grid');
+    calendarData.cells.forEach(cell => {
+      const cellEl = grid.createDiv('para-task-calendar-cell');
+      if (cell.isToday) cellEl.addClass('today');
+      if (cell.isPast && !cell.isToday) cellEl.addClass('past');
+
+      const header = cellEl.createDiv('para-task-calendar-cell-header');
+      header.createSpan({ text: cell.dayLabel, cls: 'para-task-calendar-day' });
+      header.createSpan({ text: cell.dateLabel.toString(), cls: 'para-task-calendar-date' });
+
+      const bar = cellEl.createDiv('para-task-calendar-bar');
+      if (cell.tasks.length === 0) {
+        bar.addClass('empty');
+        bar.setText('No tasks');
+      } else {
+        const total = cell.tasks.length;
+        Object.entries(cell.counts).forEach(([location, count]) => {
+          if (count === 0) return;
+          const segment = bar.createDiv('para-task-calendar-bar-segment');
+          segment.style.backgroundColor = PARA_COLORS[location] || 'var(--interactive-accent)';
+          segment.style.width = `${(count / total) * 100}%`;
+          segment.setAttribute('title', `${count} ${location}`);
+        });
+      }
+
+      if (cell.tasks.length > 0) {
+        const list = cellEl.createEl('ul', { cls: 'para-task-calendar-list' });
+        cell.tasks.slice(0, 3).forEach(task => {
+          const item = list.createEl('li', { cls: 'para-task-calendar-item' });
+          const taskDue = new Date(task.dueDate);
+          taskDue.setHours(0, 0, 0, 0);
+          const now = new Date();
+          now.setHours(0, 0, 0, 0);
+          if (!task.completed && taskDue < now) {
+            item.addClass('overdue');
+          }
+
+          const paraKey = task.paraLocation || 'unknown';
+          const paraLabel = task.paraLocation ? task.paraLocation.substring(0, 3).toUpperCase() : 'N/A';
+
+          item.innerHTML = `
+            <span class="para-task-calendar-status">${task.completed ? '✅' : taskDue < now ? '⚠️' : '•'}</span>
+            ${task.text}
+            <span class="para-task-calendar-para para-location-badge ${paraKey}">
+              ${paraLabel}
+            </span>
+          `;
+
+          item.addEventListener('click', () => {
+            this.app.workspace.openLinkText(task.file, '', false);
+          });
+        });
+
+        if (cell.tasks.length > 3) {
+          cellEl.createEl('p', {
+            text: `+${cell.tasks.length - 3} more`,
+            cls: 'para-task-calendar-more'
+          });
+        }
+      }
+    });
+
+    const totalsSection = calendarView.createDiv('para-task-calendar-stats');
+    totalsSection.createEl('h3', { text: 'Load by PARA' });
+    const totalsGrid = totalsSection.createDiv('para-task-calendar-totals');
+    Object.entries(calendarData.windowCounts).forEach(([location, count]) => {
+      const card = totalsGrid.createDiv('para-task-calendar-total');
+      const badge = card.createSpan('para-location-badge');
+      badge.addClass(location);
+      badge.setText(location.toUpperCase());
+      card.createDiv('para-task-calendar-total-value').setText(count.toString());
+      card.createDiv('para-task-calendar-total-label').setText('Tasks in calendar window');
+    });
+
+    const overdueSection = calendarView.createDiv('para-task-calendar-overdue');
+    overdueSection.createEl('h3', { text: 'Overdue Tasks' });
+    if (calendarData.overdueTasks.length === 0) {
+      overdueSection.createEl('p', { text: 'No overdue tasks. Nice work!' });
+    } else {
+      const list = overdueSection.createEl('ul');
+      list.addClass('para-task-calendar-overdue-list');
+      calendarData.overdueTasks.slice(0, 10).forEach(task => {
+        const item = list.createEl('li');
+        const paraLabel = task.paraLocation ? task.paraLocation.toUpperCase() : 'UNKNOWN';
+        item.innerHTML = `
+          <strong>${task.text}</strong>
+          <span class="para-task-calendar-overdue-meta">
+            ${task.dueDate} • ${task.fileName} • ${paraLabel}
+          </span>
+        `;
+        item.addEventListener('click', () => {
+          this.app.workspace.openLinkText(task.file, '', false);
+        });
+      });
+      if (calendarData.overdueTasks.length > 10) {
+        overdueSection.createEl('p', {
+          text: `${calendarData.overdueTasks.length - 10} additional overdue tasks`,
+          attr: { style: 'color: var(--text-muted); font-size: 0.9em;' }
+        });
+      }
+    }
+  }
+
+  buildTaskCalendarData(tasks) {
+    const dayMs = 24 * 60 * 60 * 1000;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const start = new Date(today);
+    const weekday = today.getDay();
+    const mondayOffset = (weekday + 6) % 7;
+    start.setDate(start.getDate() - mondayOffset);
+
+    const totalDays = 28;
+    const cells = [];
+    const cellMap = new Map();
+
+    for (let i = 0; i < totalDays; i++) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
+      date.setHours(0, 0, 0, 0);
+      const dateStr = date.toISOString().split('T')[0];
+      const cell = {
+        date: dateStr,
+        timestamp: date.getTime(),
+        dayLabel: date.toLocaleDateString(undefined, { weekday: 'short' }),
+        dateLabel: date.getDate(),
+        tasks: [],
+        counts: { inbox: 0, projects: 0, areas: 0, resources: 0, archive: 0 },
+        isToday: date.getTime() === today.getTime(),
+        isPast: date.getTime() < today.getTime()
+      };
+      cells.push(cell);
+      cellMap.set(dateStr, cell);
+    }
+
+    const overdueTasks = [];
+    const windowCounts = { inbox: 0, projects: 0, areas: 0, resources: 0, archive: 0 };
+
+    tasks.forEach(task => {
+      const due = new Date(task.dueDate);
+      if (isNaN(due.getTime())) return;
+      due.setHours(0, 0, 0, 0);
+      const dateStr = due.toISOString().split('T')[0];
+      if (!task.completed && due < today) {
+        overdueTasks.push(task);
+      }
+      const cell = cellMap.get(dateStr);
+      if (cell) {
+        cell.tasks.push(task);
+        if (cell.counts[task.paraLocation] !== undefined) {
+          cell.counts[task.paraLocation]++;
+          windowCounts[task.paraLocation]++;
+        }
+      }
+    });
+
+    cells.forEach(cell => {
+      cell.tasks.sort((a, b) => {
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
+        return a.text.localeCompare(b.text);
+      });
+    });
+
+    const upcomingWeekEnd = today.getTime() + 7 * dayMs;
+    const upcomingWeekCount = cells
+      .filter(cell => cell.timestamp >= today.getTime() && cell.timestamp < upcomingWeekEnd)
+      .reduce((sum, cell) => sum + cell.tasks.filter(t => !t.completed).length, 0);
+
+    let busiestCell = cells.reduce((best, cell) => {
+      if (!best || cell.tasks.length > best.tasks.length) return cell;
+      return best;
+    }, null);
+    if (busiestCell && busiestCell.tasks.length === 0) {
+      busiestCell = null;
+    }
+
+    return {
+      cells,
+      overdueTasks,
+      upcomingWeekCount,
+      busiestCell,
+      windowCounts
+    };
   }
 
   async updateCurrentNoteData() {
