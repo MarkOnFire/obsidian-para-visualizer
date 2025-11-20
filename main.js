@@ -2955,6 +2955,13 @@ class PARAVisualizerPlugin extends Plugin {
   async onload() {
     console.log('Loading PARA Visualizer plugin');
 
+    // Disable on mobile for performance
+    if (this.app.isMobile) {
+      console.log('PARA Visualizer: Disabled on mobile for performance');
+      new Notice('PARA Visualizer is disabled on mobile for performance. Use desktop for visualizations.');
+      return;
+    }
+
     // Check for Quick PARA plugin
     this.checkDependencies();
 
