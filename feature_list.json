@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Initializer and Artifact Check",
+    "description": "Run init.sh to confirm runtime prerequisites and presence of main.js/manifest.json",
+    "status": "completed",
+    "verification_command": "./init.sh"
+  },
+  {
+    "name": "Vault-Level Visualizations",
+    "description": "Heatmap, knowledge graph, tag cloud, and statistics dashboards for PARA folders",
+    "status": "in_progress",
+    "verification_command": "./init.sh"
+  },
+  {
+    "name": "Note Context View",
+    "description": "Incoming/outgoing links, sibling notes, related-by-tags, and orphan detection for current note",
+    "status": "in_progress",
+    "verification_command": "./init.sh"
+  },
+  {
+    "name": "PARA Flow and Task Analytics",
+    "description": "Flow timelines, PARA history visualizations, and task analytics across PARA buckets",
+    "status": "in_progress",
+    "verification_command": "./init.sh"
+  },
+  {
+    "name": "Dependency Check and Quick PARA Integration",
+    "description": "Warn when Quick PARA is missing and degrade gracefully when para/para_history fields are absent",
+    "status": "pending",
+    "verification_command": "./init.sh"
+  }
+]
