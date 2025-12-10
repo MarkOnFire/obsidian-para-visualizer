@@ -1,0 +1,26 @@
+name: Build
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify plugin files exist
+        run: |
+          test -f main.js || (echo "main.js not found" && exit 1)
+          test -f manifest.json || (echo "manifest.json not found" && exit 1)
+          test -f styles.css || (echo "styles.css not found" && exit 1)
+          echo "All required plugin files present"
+
+      - name: Validate manifest.json
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('manifest.json', 'utf8'))"
+          echo "manifest.json is valid JSON"

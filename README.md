@@ -129,18 +129,18 @@ Run the command **"PARA Visualizer: Check Dependencies"** from the command palet
 
 ## Installation
 
+### From Obsidian Community Plugins (Coming Soon)
+1. Open Settings → Community Plugins
+2. Search for "PARA Visualizer"
+3. Click Install, then Enable
+
 ### Manual Installation
 
-1. Copy the `para-visualizer` folder to your vault's `.obsidian/plugins/` directory:
-   ```bash
-   rsync -a custom-extensions/plugins/para-visualizer/ "/Users/mriechers/Library/Mobile Documents/iCloud~md~obsidian/Documents/MarkBrain/.obsidian/plugins/para-visualizer/"
-   ```
-
-2. Restart Obsidian or reload the app
-
-3. Go to Settings → Community plugins → Enable "PARA Visualizer"
-
-4. **(Recommended)** Install and enable the **Quick PARA** plugin for full functionality
+1. Download the latest release from [Releases](https://github.com/MarkOnFire/obsidian-para-visualizer/releases)
+2. Extract to your vault's `.obsidian/plugins/para-visualizer/` folder
+3. Restart Obsidian or reload the app
+4. Go to Settings → Community plugins → Enable "PARA Visualizer"
+5. **(Recommended)** Install and enable the **[Quick PARA](https://github.com/MarkOnFire/obsidian-quick-para)** plugin for full functionality
 
 ## Usage
 
