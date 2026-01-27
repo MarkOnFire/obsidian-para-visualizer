@@ -2962,8 +2962,10 @@ class PARAVisualizerPlugin extends Plugin {
       return;
     }
 
-    // Check for Quick PARA plugin
-    this.checkDependencies();
+    // Check for Quick PARA plugin (deferred until all plugins have loaded)
+    this.app.workspace.onLayoutReady(() => {
+      this.checkDependencies();
+    });
 
     // Register view
     this.registerView(
